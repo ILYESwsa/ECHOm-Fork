@@ -32,18 +32,24 @@ jobs:
             ${{ runner.os }}-gradle-
 
       - name: Create local.properties
-        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+        
+          mkdir -p "$HOME/.android"
+          run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Create google-services.json
         env:
           GOOGLE_SERVICES_CONTENT: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
+        
+          mkdir -p "$HOME/.android"
+          run: |
           if [ -n "$GOOGLE_SERVICES_CONTENT" ]; then
             printf "%s" "$GOOGLE_SERVICES_CONTENT" > app/google-services.json
           fi
 
       - name: Generate debug keystore
-        run: |
+        
+          mkdir -p "$HOME/.android"
+          run: |
           keytool -genkeypair -v \
             -keystore "$HOME/.android/debug.keystore" \
             -alias androiddebugkey \
@@ -61,13 +67,17 @@ jobs:
         env:
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           LASTFM_SECRET:  ${{ secrets.LASTFM_SECRET }}
-        run: |
+        
+          mkdir -p "$HOME/.android"
+          run: |
           chmod +x ./gradlew
           ./gradlew assembleUniversalGmsDebug --stacktrace
 
       - name: Rename APK
         id: apk
-        run: |
+        
+          mkdir -p "$HOME/.android"
+          run: |
           VERSION=$(grep 'versionName =' app/build.gradle.kts | head -1 | awk -F'"' '{print $2}')
           SHA=$(git rev-parse --short HEAD)
           NAME="Echo-${VERSION}-debug-${SHA}.apk"

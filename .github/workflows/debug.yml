@@ -26,30 +26,21 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-debug-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-debug-
-            ${{ runner.os }}-gradle-
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
+          restore-keys: ${{ runner.os }}-gradle-
 
       - name: Create local.properties
-        
-          mkdir -p "$HOME/.android"
-          run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-      - name: Create google-services.json
+      - name: Restore google-services.json
         env:
-          GOOGLE_SERVICES_CONTENT: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        
-          mkdir -p "$HOME/.android"
-          run: |
-          if [ -n "$GOOGLE_SERVICES_CONTENT" ]; then
-            printf "%s" "$GOOGLE_SERVICES_CONTENT" > app/google-services.json
-          fi
+          DATA: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$DATA" ]; then echo "$DATA" > app/google-services.json; fi
 
       - name: Generate debug keystore
-        
-          mkdir -p "$HOME/.android"
-          run: |
+        run: |
+          mkdir -p "$HOME/.android" app
           keytool -genkeypair -v \
             -keystore "$HOME/.android/debug.keystore" \
             -alias androiddebugkey \
@@ -59,35 +50,26 @@ jobs:
             -keypass android \
             -dname "CN=Android Debug,O=Android,C=US" \
             -storetype JKS
-          # Also put a copy where persistentDebug signingConfig expects it
-          mkdir -p app
           cp "$HOME/.android/debug.keystore" app/persistent-debug.keystore
 
       - name: Build Debug APK
         env:
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-          LASTFM_SECRET:  ${{ secrets.LASTFM_SECRET }}
-        
-          mkdir -p "$HOME/.android"
-          run: |
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
+        run: |
           chmod +x ./gradlew
           ./gradlew assembleUniversalGmsDebug --stacktrace
 
-      - name: Rename APK
+      - name: Collect APK
         id: apk
-        
-          mkdir -p "$HOME/.android"
-          run: |
-          VERSION=$(grep 'versionName =' app/build.gradle.kts | head -1 | awk -F'"' '{print $2}')
+        run: |
+          VER=$(grep 'versionName =' app/build.gradle.kts | head -1 | awk -F'"' '{print $2}')
           SHA=$(git rev-parse --short HEAD)
-          NAME="Echo-${VERSION}-debug-${SHA}.apk"
           mkdir -p dist
-          find app/build/outputs/apk/ -name "*.apk" | head -1 | xargs -I{} cp {} "dist/$NAME"
-          echo "name=$NAME" >> $GITHUB_OUTPUT
-          echo "sha=$SHA"   >> $GITHUB_OUTPUT
-          echo "ver=$VERSION" >> $GITHUB_OUTPUT
+          find app/build/outputs/apk/ -name "*.apk" | head -1 | xargs -I{} cp {} dist/Echo-${VER}-debug-${SHA}.apk
+          echo "name=Echo-${VER}-debug-${SHA}.apk" >> $GITHUB_OUTPUT
 
-      - name: Upload app-debug artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
